@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: SEE LICENSE IN LICENSE
 
-
 //Layout of Contract:
 //version
 //imports
@@ -23,7 +22,6 @@
 //view functions
 //pure functions
 
-
 pragma solidity 0.8.20;
 
 import {ERC20Burnable, ERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Burnable.sol";
@@ -42,6 +40,7 @@ contract DecentralizedStableCoin is ERC20Burnable {
     error DecentralizedStableCoin_MustBeMoreThanZero();
     error DecentralizedStableCoin_BurnAmountExceedsBalance();
     error DecentralizedStableCoin_NotZeroAddress();
+
     address private _owner;
 
     modifier onlyOwner() {
@@ -64,8 +63,8 @@ contract DecentralizedStableCoin is ERC20Burnable {
         super.burn(_amount);
     }
 
-    function mint(address _to, uint256 _amount) external onlyOwner returns(bool){
-        if(_to == address(0)) {
+    function mint(address _to, uint256 _amount) external onlyOwner returns (bool) {
+        if (_to == address(0)) {
             revert DecentralizedStableCoin_NotZeroAddress();
         }
         if (_amount <= 0) {
