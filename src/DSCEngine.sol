@@ -27,6 +27,7 @@ pragma solidity 0.8.20;
 import {DecentralizedStableCoin} from "./DecentralizedStableCoin.sol";
 import {ReentrancyGuard} from "lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import {AggregatorV3Interface} from "lib/chainlink-brownie-contracts/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 /**
  * @title DSCEngine
  * @author Suraj Yadav
@@ -58,9 +59,13 @@ contract DSCEngine is ReentrancyGuard {
     ////////////////////
     //   State variables //
     ///////////////////
+    uint256 private constant ADDITIONAL_FEED_PRECISION = 1e10;
+    uint256 private constant PRECISION = 1e18;
 
     mapping(address token => address priceFeed) private s_priceFeeds; // token to pricefeeds
     mapping(address user => mapping(address token => uint256 amount)) s_collateralDeposited;
+    mapping(address user => uint256 amountDscMinted) private s_dscMinted;
+    address[] private s_collateralTokens;
 
     DecentralizedStableCoin private immutable i_dsc;
 
@@ -101,6 +106,7 @@ contract DSCEngine is ReentrancyGuard {
         }
         for (uint256 i = 0; i < tokenAddresses.length; i++) {
             s_priceFeeds[tokenAddresses[i]] = priceFeedAddresses[i];
+            s_collateralTokens.push(tokenAddresses[i]);
         }
         i_dsc = DecentralizedStableCoin(dscAddress);
     }
@@ -133,9 +139,64 @@ contract DSCEngine is ReentrancyGuard {
 
     function redeemCollateral() external {}
 
+    /* 
+    * @notice follows CEI
+    * @param amountDscToMint the amount of decentralized stablecoin to mint
+    * @notice they must have more collateral value than minimum threshold
+    */
+    function mintDsc(uint256 amountDscToMint) external moreThanZero(amountDscToMint) nonReentrant  {
+        s_dscMinted[msg.sender] += amountDscToMint;
+        //if they minted too much ($150 DSC, $100 ETH)
+        _revertifHealthFactorIsBroken(msg.sender);
+    }
+
     function burnDSC() external {}
 
     function liquidate() external {}
 
     function getHealthFactor() external view {}
+
+
+    //////////////////////////////////
+    //  Private & internal view functions //
+    /////////////////////////////////
+
+    function _getAccountInformation(address user) private view returns( uint256 totalDscMinted, uint256 collateralValueInUsd) {
+        // 1. Get the total DSC minted by the user
+        totalDscMinted = s_dscMinted[user];
+        collateralValueInUsd = getAccountCollateralValue(user);
+    }
+    function _healthFactor(address user) private view returns(uint256) {
+        // total DSC minted
+        // total collateral VALUE
+        (uint256 totalDscMinted, uint256  collateralValueInUsd) = _getAccountInformation(user);
+    }
+
+    function _revertifHealthFactorIsBroken(address user) internal view {
+        // 1. Check health factor (do they have enough collateral?)
+        // 2. Revert if they don't
+    }
+
+    
+    //////////////////////////////////
+    //  Public & external view functions //
+    /////////////////////////////////
+    function getAccountCollateralValue(address user) public view returns (uint256 totalCollateralValueInUsd) {
+        // loop through each collateral token, get the amount they have deposited, and map it to 
+        // the price feed to get the value in USD
+        for (uint256 i = 0; i<s_collateralTokens.length; i++) {
+            address token = s_collateralTokens[i];
+            uint256 amount = s_collateralDeposited[user][token];
+            totalCollateralValueInUsd += getUsdValue(token, amount);
+        }
+        return totalCollateralValueInUsd;
+    }
+
+    function getUsdValue(address token, uint256 amount) public view returns (uint256) {
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[token]);
+        (, int256 price, , , ) = priceFeed.latestRoundData();
+        // 1 ETH = $3500
+        // The returned price is in 8 decimals, 3500 * 1e8
+        return ((uint256 (price) * ADDITIONAL_FEED_PRECISION) * amount) / PRECISION;
+    }
 }
