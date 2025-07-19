@@ -7,7 +7,6 @@ import {DSCEngine} from "../src/DSCEngine.sol";
 import {HelperConfig} from "./HelperConfig.sol";
 
 contract Deploy is Script {
-   
     function run() external returns (DecentralizedStableCoin, DSCEngine, HelperConfig) {
         HelperConfig helperConfig = new HelperConfig(); // This comes with our mocks!
 
