@@ -52,7 +52,9 @@ contract DecentralizedStableCoin is ERC20Burnable {
         _owner = msg.sender;
     }
 
-    function burn(uint256 _amount) public override onlyOwner {
+    function burn(
+        uint256 _amount
+    ) public override onlyOwner {
         uint256 balance = balanceOf(msg.sender);
         if (_amount <= 0) {
             revert DecentralizedStableCoin_MustBeMoreThanZero();

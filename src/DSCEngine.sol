@@ -27,7 +27,9 @@ pragma solidity 0.8.20;
 import {DecentralizedStableCoin} from "./DecentralizedStableCoin.sol";
 import {ReentrancyGuard} from "lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {AggregatorV3Interface} from "lib/chainlink-brownie-contracts/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+import {AggregatorV3Interface} from
+    "lib/chainlink-brownie-contracts/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+
 /**
  * @title DSCEngine
  * @author Suraj Yadav
@@ -45,7 +47,6 @@ import {AggregatorV3Interface} from "lib/chainlink-brownie-contracts/contracts/s
  * @notice THis contract is the core of the DSC System. It handles all the logic for mining and redeeming DSC, as well as depositing & withdrwaing collateral.
  * @notice THis contract is VERY loosely based on the MakerDAO DSC (DAI) system
  */
-
 contract DSCEngine is ReentrancyGuard {
     ////////////////////
     //   errors  //
@@ -83,14 +84,18 @@ contract DSCEngine is ReentrancyGuard {
     ////////////////////
     //   Modifiers //
     ///////////////////
-    modifier moreThanZero(uint256 amount) {
+    modifier moreThanZero(
+        uint256 amount
+    ) {
         if (amount == 0) {
             revert DSCEngineNeedsMoreThanZero();
         }
         _;
     }
 
-    modifier isAllowedToken(address token) {
+    modifier isAllowedToken(
+        address token
+    ) {
         if (s_priceFeeds[token] == address(0)) {
             _;
         }
@@ -126,12 +131,10 @@ contract DSCEngine is ReentrancyGuard {
     * @param tokenCollateralAddress The address of the token to deposit as collateral
     * @param amountCollateral The amount of collateral to deposit
      */
-    function depositCollateral(address tokenCollateralAddress, uint256 amountCollateral)
-        external
-        moreThanZero(amountCollateral)
-        isAllowedToken(tokenCollateralAddress)
-        nonReentrant
-    {
+    function depositCollateral(
+        address tokenCollateralAddress,
+        uint256 amountCollateral
+    ) external moreThanZero(amountCollateral) isAllowedToken(tokenCollateralAddress) nonReentrant {
         s_collateralDeposited[msg.sender][tokenCollateralAddress] += amountCollateral;
         emit collateralDeposited(msg.sender, tokenCollateralAddress, amountCollateral);
         bool success = IERC20(tokenCollateralAddress).transferFrom(msg.sender, address(this), amountCollateral);
@@ -149,7 +152,9 @@ contract DSCEngine is ReentrancyGuard {
     * @param amountDscToMint the amount of decentralized stablecoin to mint
     * @notice they must have more collateral value than minimum threshold
     */
-    function mintDsc(uint256 amountDscToMint) external moreThanZero(amountDscToMint) nonReentrant {
+    function mintDsc(
+        uint256 amountDscToMint
+    ) external moreThanZero(amountDscToMint) nonReentrant {
         s_dscMinted[msg.sender] += amountDscToMint;
         //if they minted too much ($150 DSC, $100 ETH)
         _revertifHealthFactorIsBroken(msg.sender);
@@ -169,17 +174,17 @@ contract DSCEngine is ReentrancyGuard {
     //  Private & internal view functions //
     /////////////////////////////////
 
-    function _getAccountInformation(address user)
-        private
-        view
-        returns (uint256 totalDscMinted, uint256 collateralValueInUsd)
-    {
+    function _getAccountInformation(
+        address user
+    ) private view returns (uint256 totalDscMinted, uint256 collateralValueInUsd) {
         // 1. Get the total DSC minted by the user
         totalDscMinted = s_dscMinted[user];
         collateralValueInUsd = getAccountCollateralValue(user);
     }
 
-    function _healthFactor(address user) private view returns (uint256) {
+    function _healthFactor(
+        address user
+    ) private view returns (uint256) {
         // total DSC minted
         // total collateral VALUE
         (uint256 totalDscMinted, uint256 collateralValueInUsd) = _getAccountInformation(user);
@@ -193,7 +198,9 @@ contract DSCEngine is ReentrancyGuard {
     // 1. Check health factor (do they have enough collateral?)
     // 2. Revert if they don't
 
-    function _revertifHealthFactorIsBroken(address user) internal view {
+    function _revertifHealthFactorIsBroken(
+        address user
+    ) internal view {
         uint256 userHealthFactor = _healthFactor(user);
         if (userHealthFactor < MIN_HEALTH_FACTOR) {
             revert DSCEngine_BreakHealthFactor(userHealthFactor);
@@ -203,7 +210,9 @@ contract DSCEngine is ReentrancyGuard {
     //////////////////////////////////
     //  Public & external view functions //
     /////////////////////////////////
-    function getAccountCollateralValue(address user) public view returns (uint256 totalCollateralValueInUsd) {
+    function getAccountCollateralValue(
+        address user
+    ) public view returns (uint256 totalCollateralValueInUsd) {
         // loop through each collateral token, get the amount they have deposited, and map it to
         // the price feed to get the value in USD
         for (uint256 i = 0; i < s_collateralTokens.length; i++) {

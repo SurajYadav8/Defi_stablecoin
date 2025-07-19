@@ -26,7 +26,9 @@ contract MockV3Aggregator {
         updateAnswer(_initialAnswer);
     }
 
-    function updateAnswer(int256 _answer) public {
+    function updateAnswer(
+        int256 _answer
+    ) public {
         latestAnswer = _answer;
         latestTimestamp = block.timestamp;
         latestRound++;
@@ -44,7 +46,9 @@ contract MockV3Aggregator {
         getStartedAt[latestRound] = _startedAt;
     }
 
-    function getRoundData(uint80 _roundId)
+    function getRoundData(
+        uint80 _roundId
+    )
         external
         view
         returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
