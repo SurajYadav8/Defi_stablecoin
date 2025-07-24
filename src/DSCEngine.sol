@@ -52,7 +52,7 @@ contract DSCEngine is ReentrancyGuard {
     //   errors  //
     ///////////////////
 
-    error DSCEngineNeedsMoreThanZero();
+    error DSCEngine_NeedsMoreThanZero();
     error DSCEngine__TokenAddressesAndPriceFeedAddressesMustBeSameLength();
     error DSCEngine__NotAllowedToken();
     error DSCEngine__TransferFailed();
@@ -88,7 +88,7 @@ contract DSCEngine is ReentrancyGuard {
         uint256 amount
     ) {
         if (amount == 0) {
-            revert DSCEngineNeedsMoreThanZero();
+            revert DSCEngine_NeedsMoreThanZero();
         }
         _;
     }
