@@ -134,7 +134,9 @@ contract DSCEngine is ReentrancyGuard {
     function depositCollateral(
         address tokenCollateralAddress,
         uint256 amountCollateral
-    ) external moreThanZero(amountCollateral) isAllowedToken(tokenCollateralAddress) nonReentrant {
+    ) external moreThanZero(amountCollateral) isAllowedToken(tokenCollateralAddress) nonReentrant 
+    {
+
         s_collateralDeposited[msg.sender][tokenCollateralAddress] += amountCollateral;
         emit collateralDeposited(msg.sender, tokenCollateralAddress, amountCollateral);
         bool success = IERC20(tokenCollateralAddress).transferFrom(msg.sender, address(this), amountCollateral);
