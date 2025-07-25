@@ -214,8 +214,28 @@ contract DSCEngine is ReentrancyGuard {
         i_dsc.burn(amount);
         _revertifHealthFactorIsBroken(msg.sender);  // I don't think this would ever hit.....
     }
-
-    function liquidate() external {}
+    
+    // if someone is almost under collateralized, we will pay you to liquidate them!
+    /* 
+     * @param collateral The erc20 collateral address to liquidate from the user
+     * @param user The user who has broken the health factor, Their _healthFactor should below MIN_HEALTH_FACTOR
+     * @param debtToCover The amount of DSC you want to burn to improve the users health factor
+     * @notice You can partially Liquidate a user.
+     * @noitce You will get a liquidation bonus for taking the users funds.
+     * @notice This function working assumes the protocol will be roughly 200% overcollateralized in order for this to work.
+     * @notice A known bug would be if the protocol were 100% or less collateralized, then we wouldn't be able to liquidate anyone.
+     * For example, if the price of the collateral plummeted before anyone could be liquidated.
+     * Follows CEI: Checks Effects Interactions
+    */
+    function liquidate(address collateral, address user, uint256 debtToCover) external moreThanZero(debtToCover)
+    nonReentrant
+    {
+        // need to check health factor of the user
+        uint256 startingUserHealthFactor = _healthFactor(user);
+        if(startingUserHealthFactor >= MIN_HEALTH_FACTOR) {
+            revert DSCEngine_BreakHealthFactor(startingUserHealthFactor);
+        }
+    }
 
     function getHealthFactor() external view {}
 
