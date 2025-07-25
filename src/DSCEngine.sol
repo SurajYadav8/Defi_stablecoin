@@ -79,7 +79,8 @@ contract DSCEngine is ReentrancyGuard {
     //   Events  //
     ///////////////////
 
-    event collateralDeposited(address indexed user, address indexed token, uint256 amount);
+    event CollateralDeposited(address indexed user, address indexed token, uint256 amount);
+    event CollateralRedeemed(address indexed user, uint256 indexed amount, address indexed token);
 
     ////////////////////
     //   Modifiers //
@@ -147,16 +148,44 @@ contract DSCEngine is ReentrancyGuard {
     {
 
         s_collateralDeposited[msg.sender][tokenCollateralAddress] += amountCollateral;
-        emit collateralDeposited(msg.sender, tokenCollateralAddress, amountCollateral);
+        emit CollateralDeposited(msg.sender, tokenCollateralAddress, amountCollateral);
         bool success = IERC20(tokenCollateralAddress).transferFrom(msg.sender, address(this), amountCollateral);
         if (!success) {
             revert DSCEngine__TransferFailed();
         }
     }
 
-    function redeemCollateralForDsc() external {}
+    /*
+     * @param tokenCollateralAddress The collateral address to redeem
+     * @param amountCollateral The amount of collateral to redeem
+     * @param amountDscToBurn The amount of DSC to burn
+     * This function burns DSC and redeems underlying collateral in one transaction.
+     */
 
-    function redeemCollateral() external {}
+    function redeemCollateralForDsc(address tokenCollateralAddress, uint256 amountCollateral, uint256 amountDscToBurn) external {
+        burnDSC(amountDscToBurn);
+        redeemCollateral(tokenCollateralAddress, amountCollateral);
+        // redeemCollateral already checks health factor
+    }
+
+    // in order to redeem collateral:
+    // 1. health factor must be over 1 After collateral pulled
+    // DRY: Don't repeat yourself
+
+
+    function redeemCollateral(address tokenCollateralAddress, uint256 amountCollateral) public 
+     moreThanZero(amountCollateral) 
+     nonReentrant
+    {
+        s_collateralDeposited[msg.sender][tokenCollateralAddress] -= amountCollateral;
+        emit CollateralRedeemed(msg.sender, amountCollateral, tokenCollateralAddress);
+        // _calculateHealthFactor()
+        bool success = IERC20(tokenCollateralAddress).transfer(msg.sender, amountCollateral);
+        if (!success) {
+            revert DSCEngine__TransferFailed();
+        }
+        _revertifHealthFactorIsBroken(msg.sender);
+    }
 
     /* 
     * @notice follows CEI
@@ -175,7 +204,16 @@ contract DSCEngine is ReentrancyGuard {
         }
     }
 
-    function burnDSC() external {}
+    function burnDSC(uint256 amount) public moreThanZero(amount) {
+        s_dscMinted[msg.sender] -= amount;
+        bool success = i_dsc.transferFrom(msg.sender, address(this), amount);
+        //This conditional is hypothetically unreachable
+        if (!success) {
+            revert DSCEngine__TransferFailed();
+        }
+        i_dsc.burn(amount);
+        _revertifHealthFactorIsBroken(msg.sender);  // I don't think this would ever hit.....
+    }
 
     function liquidate() external {}
 
