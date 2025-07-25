@@ -59,6 +59,7 @@ contract DSCEngine is ReentrancyGuard {
     error DSCEngine_BreakHealthFactor(uint256 healthFactor);
     error DSCEngine__MintFailed();
     error DSCEngine_HealthFactorOk();
+    error DSCEngine_HealthFactorNotImproved();
 
     ////////////////////
     //   State variables //
@@ -82,7 +83,7 @@ contract DSCEngine is ReentrancyGuard {
     ///////////////////
 
     event CollateralDeposited(address indexed user, address indexed token, uint256 amount);
-    event CollateralRedeemed(address indexed user, uint256 indexed amount, address indexed token);
+    event CollateralRedeemed(address indexed redeemedFrom, address indexed redeemedTo, uint256 amount, address indexed token);
 
     ////////////////////
     //   Modifiers //
@@ -179,13 +180,7 @@ contract DSCEngine is ReentrancyGuard {
      moreThanZero(amountCollateral) 
      nonReentrant
     {
-        s_collateralDeposited[msg.sender][tokenCollateralAddress] -= amountCollateral;
-        emit CollateralRedeemed(msg.sender, amountCollateral, tokenCollateralAddress);
-        // _calculateHealthFactor()
-        bool success = IERC20(tokenCollateralAddress).transfer(msg.sender, amountCollateral);
-        if (!success) {
-            revert DSCEngine__TransferFailed();
-        }
+        _redeemCollateral(tokenCollateralAddress, amountCollateral, msg.sender, msg.sender);
         _revertifHealthFactorIsBroken(msg.sender);
     }
 
@@ -207,13 +202,8 @@ contract DSCEngine is ReentrancyGuard {
     }
 
     function burnDSC(uint256 amount) public moreThanZero(amount) {
-        s_dscMinted[msg.sender] -= amount;
-        bool success = i_dsc.transferFrom(msg.sender, address(this), amount);
-        //This conditional is hypothetically unreachable
-        if (!success) {
-            revert DSCEngine__TransferFailed();
-        }
-        i_dsc.burn(amount);
+       
+       _burnDSC(amount, msg.sender, msg.sender);
         _revertifHealthFactorIsBroken(msg.sender);  // I don't think this would ever hit.....
     }
     
@@ -250,8 +240,16 @@ contract DSCEngine is ReentrancyGuard {
 
         //0.05ETH * .1 = 0.005 Getting 0.055
         uint256 bonusCollateral = (tokenAmountFromDebtCovered * LIQUIDATOR_BONUS) / LIQUIDATION_PRECISION;
-        uint256 totalCOllateralToRedeem = tokenAmountFromDebtCovered + bonusCollateral;
-        
+        uint256 totalCollateralToRedeem = tokenAmountFromDebtCovered + bonusCollateral;
+        _redeemCollateral(collateral, totalCollateralToRedeem, user, msg.sender);
+        _burnDSC(debtToCover, user, msg.sender);
+
+        uint256 endingUserHealthFactor = _healthFactor(user);
+        if(endingUserHealthFactor <= startingUserHealthFactor) {
+            revert DSCEngine_HealthFactorNotImproved();
+        }
+        _revertifHealthFactorIsBroken(msg.sender);
+
 
     }
 
@@ -260,6 +258,34 @@ contract DSCEngine is ReentrancyGuard {
     //////////////////////////////////
     //  Private & internal view functions //
     /////////////////////////////////
+
+    function _burnDSC(
+        uint256 amountDscToBurn, address onBehalfOf, address dscFrom
+    ) private {
+       s_dscMinted[onBehalfOf] -= amountDscToBurn;
+        bool success = i_dsc.transferFrom(dscFrom, address(this), amountDscToBurn);
+        //This conditional is hypothetically unreachable
+        if (!success) {
+            revert DSCEngine__TransferFailed();
+        }
+        i_dsc.burn(amountDscToBurn);
+    }
+
+    function _redeemCollateral(
+        address tokenCollateralAddress,
+        uint256 amountCollateral,
+        address from,
+        address to
+    ) private {
+        s_collateralDeposited[from][tokenCollateralAddress] -= amountCollateral;
+        emit CollateralRedeemed(from, to, amountCollateral, tokenCollateralAddress);
+        // _calculateHealthFactor()
+        bool success = IERC20(tokenCollateralAddress).transfer(to, amountCollateral);
+        if (!success) {
+            revert DSCEngine__TransferFailed();
+        }
+        // _revertifHealthFactorIsBroken(to);
+    }
 
     function _getAccountInformation(
         address user
