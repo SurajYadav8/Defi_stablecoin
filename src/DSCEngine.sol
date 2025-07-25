@@ -58,6 +58,7 @@ contract DSCEngine is ReentrancyGuard {
     error DSCEngine__TransferFailed();
     error DSCEngine_BreakHealthFactor(uint256 healthFactor);
     error DSCEngine__MintFailed();
+    error DSCEngine_HealthFactorOk();
 
     ////////////////////
     //   State variables //
@@ -66,7 +67,8 @@ contract DSCEngine is ReentrancyGuard {
     uint256 private constant PRECISION = 1e18;
     uint256 private constant LIQUIDATION_THRESHOLD = 50; // 200% collateralized
     uint256 private constant LIQUIDATION_PRECISION = 100;
-    uint256 private constant MIN_HEALTH_FACTOR = 1;
+    uint256 private constant MIN_HEALTH_FACTOR = 1e18;
+    uint256 private constant LIQUIDATOR_BONUS = 10; // 10 %
 
     mapping(address token => address priceFeed) private s_priceFeeds; // token to pricefeeds
     mapping(address user => mapping(address token => uint256 amount)) s_collateralDeposited;
@@ -233,8 +235,24 @@ contract DSCEngine is ReentrancyGuard {
         // need to check health factor of the user
         uint256 startingUserHealthFactor = _healthFactor(user);
         if(startingUserHealthFactor >= MIN_HEALTH_FACTOR) {
-            revert DSCEngine_BreakHealthFactor(startingUserHealthFactor);
+            revert DSCEngine_HealthFactorOk();
         }
+        //we want to burn their DSC "debt"
+        // And take their collateral
+        // Bad User: $140 ETH, $100 DSC
+        // debtToCover = $100 
+        // $100 of DSC == ??? ETH?
+        uint256 tokenAmountFromDebtCovered = getTokenAmountFromUsd(collateral, debtToCover);
+        //And give them a 10% bonus
+        // So we are giving the liquidator $110 of WETH for 100 DSC
+        //We should implement a feature to liquidate in the event the protocol is insolvent 
+        //And sweep extra amounts into a treasury
+
+        //0.05ETH * .1 = 0.005 Getting 0.055
+        uint256 bonusCollateral = (tokenAmountFromDebtCovered * LIQUIDATOR_BONUS) / LIQUIDATION_PRECISION;
+        uint256 totalCOllateralToRedeem = tokenAmountFromDebtCovered + bonusCollateral;
+        
+
     }
 
     function getHealthFactor() external view {}
@@ -279,6 +297,18 @@ contract DSCEngine is ReentrancyGuard {
     //////////////////////////////////
     //  Public & external view functions //
     /////////////////////////////////
+
+    function getTokenAmountFromUsd(address token, uint256 usdAmountInWei) public view returns(uint256 tokenAmount) {
+        //price of ETH (token)
+        // $/ETH ETH ??
+        // ETH. $1000 / 2000 = 0.5 ETH
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[token]);
+        (, int256 price, , ,) = priceFeed.latestRoundData();
+        // ($10e18 * 1e18) / ($2000e8 * 1e10) 
+        return (usdAmountInWei * PRECISION) / (uint256(price) * ADDITIONAL_FEED_PRECISION);
+        
+    }
+
     function getAccountCollateralValue(
         address user
     ) public view returns (uint256 totalCollateralValueInUsd) {
