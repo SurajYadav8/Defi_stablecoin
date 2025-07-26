@@ -355,4 +355,8 @@ contract DSCEngine is ReentrancyGuard {
         // The returned price is in 8 decimals, 3500 * 1e8
         return ((uint256(price) * ADDITIONAL_FEED_PRECISION) * amount) / PRECISION;
     }
+
+    function getAccountInformation() external view returns(uint256 totalDscMinted, uint256 collateralValueInUsd) {
+       (totalDscMinted, collateralValueInUsd) = _getAccountInformation(msg.sender);
+    }
 }
