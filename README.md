@@ -7,6 +7,12 @@
    1. wETH
    2. wBTC
 
+
+- calculate health factor function
+- set health factor if debt is 0
+- Added a bunch of view function 
+
+
 ## Foundry
 
 **Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
