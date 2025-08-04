@@ -10,6 +10,10 @@ import {DSCEngine} from "../../src/DSCEngine.sol";
 import {DecentralizedStableCoin} from "../../src/DecentralizedStableCoin.sol";
 import {Test, console} from "forge-std/Test.sol";
 import {ERC20Mock} from "../../test/Mocks/ERC20Mocks.sol";
+import {MockV3Aggregator} from "../Mocks/MockV3Aggregator.sol";
+
+// Our Handler to interact with or handle Price Feed 
+
 
 contract Handler is Test{
     DSCEngine dsce;
@@ -20,8 +24,9 @@ contract Handler is Test{
 
     uint256 public timesMintIsCalled;
     address[] public usersWithCollateralDeposited;
+    MockV3Aggregator public ethUsdtPriceFeed;
 
-    uint256 constant MAX_UINT = type(uint96).max;
+    uint256 MAX_UINT = type(uint96).max;
 
     constructor(DSCEngine _dscEngine, DecentralizedStableCoin _dsc){
         dsce = _dscEngine;
@@ -30,6 +35,9 @@ contract Handler is Test{
         address[] memory collateralTokens = dsce.getCollateralTokens();
         weth = ERC20Mock(collateralTokens[0]);
         wbtc = ERC20Mock(collateralTokens[1]);
+
+
+        ethUsdtPriceFeed = MockV3Aggregator(dsce.getCollateralTokenPriceFeed(address(weth)));
     }
 
     // redeemCollateral <-
@@ -77,6 +85,12 @@ contract Handler is Test{
         dsce.redeemCollateral(address(collateral), amountCollateral);
     }
 
+    function updateCollateralPrice(uint96 newPrice) public {
+        int256 newPriceInt = int256(uint256(newPrice));
+        ethUsdPriceFeed.updateAnswer(newPriceInt);
+    }
+
+    // Helper Functions
     function _getCollateralFromSeed(uint256 collateralSeed) private view returns (ERC20Mock){
 
         if(collateralSeed % 2 == 0) {
