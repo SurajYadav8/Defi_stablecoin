@@ -15,6 +15,10 @@
 1. What are our invariants/properties?
 
 
+1. Some proper oracle use
+2. Write more test
+3. Smart contract Audit Preparation
+
 ## Foundry
 
 **Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
